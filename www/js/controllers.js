@@ -72,8 +72,9 @@ angular.module('conFusion.controllers', [])
 
 
 
-.controller('MenuController', ['$scope', 'menuFactory', 'baseURL', function($scope, menuFactory, baseURL) {
-            
+.controller('MenuController', ['$scope', 'menuFactory', 'favoriteFactory', 'baseURL', '$ionicListDelegate', 
+    function ($scope, menuFactory, favoriteFactory, baseURL, $ionicListDelegate) {
+
             $scope.baseURL = baseURL;
             $scope.tab = 1;
             $scope.filtText = '';
@@ -92,8 +93,7 @@ angular.module('conFusion.controllers', [])
 
                         
             $scope.select = function(setTab) {
-                $scope.tab = setTab;
-                
+                $scope.tab = setTab;                
                 if (setTab === 2) {
                     $scope.filtText = "appetizer";
                 }
@@ -115,40 +115,92 @@ angular.module('conFusion.controllers', [])
             $scope.toggleDetails = function() {
                 $scope.showDetails = !$scope.showDetails;
             };
+
+            $scope.addFavorite = function (index) {
+                console.log("index is " + index);
+                favoriteFactory.addToFavorites(index);
+                $ionicListDelegate.closeOptionButtons();
+                //console.log(favoriteFactory.getFavorites);
+            }
         }])
 
-        .controller('ContactController', ['$scope', function($scope) {
 
-            $scope.feedback = {mychannel:"", firstName:"", lastName:"", agree:false, email:"" };
-            
-            var channels = [{value:"tel", label:"Tel."}, {value:"Email",label:"Email"}];
-            
-            $scope.channels = channels;
-            $scope.invalidChannelSelection = false;
-                        
-        }])
 
-        .controller('FeedbackController', ['$scope', 'feedbackFactory', 
-            function($scope,feedbackFactory) {
+    .controller('FavoritesController', ['$scope', 'menuFactory', 'favoriteFactory', 'baseURL', '$ionicListDelegate', 
+        function ($scope, menuFactory, favoriteFactory, baseURL, $ionicListDelegate) {
+
+            $scope.baseURL = baseURL;      
+            $scope.shouldShowDelete = false;      
             
-            $scope.sendFeedback = function() {
-                
+            $scope.favorites = favoriteFactory.getFavorites();
+            
+            menuFactory.getDishes().query(
+                function(response) {
+                    $scope.dishes = response;
+                    console.log("Dishes: " + $scope.dishes);
+                },
+                function(response) {
+                    $scope.message = "Error: "+response.status + " " + response.statusText;
+            });
+
+            $scope.toggleDelete = function() {
+                $scope.shouldShowDelete = !$scope.shouldShowDelete;
+            }
+
+           $scope.deleteFavorite = function (index) {        
+                favoriteFactory.deleteFromFavorites(index);
+                $scope.shouldShowDelete = false;
+            }
+
+    }])
+
+    .filter('favoriteFilter', function(){
+        return function(dishes, favorites){
+            var out = [];
+            for (var i = 0; i < favorites.length; i++) {
+                for (var j = 0; j < dishes.length; j++) {
+                    if (dishes[j].id === favorites[i].id)
+                        out.push(dishes[j]);
+                }
+            }
+            return out;
+        }
+    })
+
+
+
+    .controller('ContactController', ['$scope', function($scope) {
+
+        $scope.feedback = {mychannel:"", firstName:"", lastName:"", agree:false, email:"" };
+        
+        var channels = [{value:"tel", label:"Tel."}, {value:"Email",label:"Email"}];
+        
+        $scope.channels = channels;
+        $scope.invalidChannelSelection = false;
+                    
+    }])
+
+    .controller('FeedbackController', ['$scope', 'feedbackFactory', 
+        function($scope,feedbackFactory) {
+        
+        $scope.sendFeedback = function() {
+            
+            console.log($scope.feedback);
+            
+            if ($scope.feedback.agree && ($scope.feedback.mychannel == "")) {
+                $scope.invalidChannelSelection = true;
+                console.log('incorrect');
+            }
+            else {
+                $scope.invalidChannelSelection = false;
+                feedbackFactory.save($scope.feedback);
+                $scope.feedback = {mychannel:"", firstName:"", lastName:"", agree:false, email:"" };
+                $scope.feedback.mychannel="";
+                $scope.feedbackForm.$setPristine();
                 console.log($scope.feedback);
-                
-                if ($scope.feedback.agree && ($scope.feedback.mychannel == "")) {
-                    $scope.invalidChannelSelection = true;
-                    console.log('incorrect');
-                }
-                else {
-                    $scope.invalidChannelSelection = false;
-                    feedbackFactory.save($scope.feedback);
-                    $scope.feedback = {mychannel:"", firstName:"", lastName:"", agree:false, email:"" };
-                    $scope.feedback.mychannel="";
-                    $scope.feedbackForm.$setPristine();
-                    console.log($scope.feedback);
-                }
-            };
-        }])
+            }
+        };
+    }])
 
         .controller('DishDetailController', ['$scope', '$stateParams', 'menuFactory', 'baseURL', 
             function($scope, $stateParams, menuFactory, baseURL) {
@@ -182,7 +234,7 @@ angular.module('conFusion.controllers', [])
                 console.log($scope.mycomment);
                 
                 $scope.dish.comments.push($scope.mycomment);
-        menuFactory.getDishes().update({id:$scope.dish.id},$scope.dish);
+                menuFactory.getDishes().update({id:$scope.dish.id},$scope.dish);
                 
                 $scope.commentForm.$setPristine();
                 
